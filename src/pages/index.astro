@@ -22,7 +22,12 @@ import Layout from "../layouts/Layout.astro";
         >
         </div>
 
-        <button type="button" id="download-result" class="hidden p-2 bg-green-600 rounded-md font-bold">Download</button>
+        <button
+            type="button"
+            id="download-result"
+            class="hidden p-2 bg-green-600 rounded-md font-bold"
+            >Download</button
+        >
     </form>
 </Layout>
 
@@ -63,7 +68,7 @@ import Layout from "../layouts/Layout.astro";
 
         let tex = "";
         for (const groupKey in groupsMap) {
-            tex += `\n\n\n\\makegroup{${groupKey}}\n`;
+            tex += `\n\n\n\\makeendpointgroup{${groupKey}}\n`;
             const groups = groupsMap[groupKey];
             for (const group of groups) {
                 const { method, path, data } = group;
@@ -115,7 +120,7 @@ import Layout from "../layouts/Layout.astro";
                 }
             }
         }
-        tex = tex.trim();
+        tex = tex.trim().replace(/_/g, "\\_");
         output.innerText = tex;
         download.classList.remove("hidden");
         download.addEventListener("click", () => {
