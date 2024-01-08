@@ -13,9 +13,9 @@ import Layout from "../layouts/Layout.astro";
             id="swagger-input"
             class="w-4/5 h-full bg-transparent border-white border-4 rounded-xl outline-none p-2"
         ></textarea>
-        <button type="submit" class="p-2 bg-red-600 rounded-md font-bold"
-            >Generate</button
-        >
+        <button type="submit" class="p-2 bg-red-600 rounded-md font-bold">
+            Generate
+        </button>
         <div
             id="swagger-output"
             class="w-4/5 h-full p-2 m-2 rounded-md border-4 border-white overflow-scroll select-all"
@@ -26,8 +26,9 @@ import Layout from "../layouts/Layout.astro";
             type="button"
             id="download-result"
             class="hidden p-2 bg-green-600 rounded-md font-bold"
-            >Download</button
         >
+            Download
+        </button>
     </form>
 </Layout>
 
@@ -75,7 +76,7 @@ import Layout from "../layouts/Layout.astro";
                 const { summary, description, parameters, responses } = data;
                 tex += `\n\n\\makeendpoint{${method.toUpperCase()}}{${path}}{${summary}}\n`;
                 if (parameters) {
-                    tex += `\n\\makeparameters\n`;
+                    tex += `\n\\begin{makeparameters}\n`;
                     for (const parameter of parameters) {
                         const {
                             name,
@@ -85,9 +86,10 @@ import Layout from "../layouts/Layout.astro";
                         } = parameter;
                         tex += `\\makeparameter{${name}}{${location}}{${description}}{${required}}\n`;
                     }
+                    tex += `\\end{makeparameters}\n`;
                 }
                 if (responses) {
-                    tex += `\n\\makeresponses\n`;
+                    tex += `\\begin{makeresponses}\n`;
                     for (const responseKey in responses) {
                         const { description, content } = responses[responseKey];
                         tex += `\\makeresponse{${responseKey}}{${description}}\n`;
@@ -102,7 +104,7 @@ import Layout from "../layouts/Layout.astro";
                                         schemaData;
                                     tex += `\\makecontent{${contentType}}{${type}}\n`;
                                     if (properties) {
-                                        tex += `\\makeproperties\n`;
+                                        tex += `\\begin{makeproperties}\n`;
                                         for (const propertyKey in properties) {
                                             const { type } =
                                                 properties[propertyKey];
@@ -110,6 +112,7 @@ import Layout from "../layouts/Layout.astro";
                                                 propertyKey
                                             )}}\n`;
                                         }
+                                        tex += `\\end{makeproperties}\n`;
                                     }
                                 } else if (type) {
                                     tex += `\\makecontent{${contentType}}{${type}}\n`;
@@ -117,6 +120,7 @@ import Layout from "../layouts/Layout.astro";
                             }
                         }
                     }
+                    tex += `\\end{makeresponses}\n`;
                 }
             }
         }
