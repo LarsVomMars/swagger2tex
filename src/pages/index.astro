@@ -40,8 +40,16 @@ import Layout from "../layouts/Layout.astro";
     const output = document.getElementById("swagger-output");
     const download = document.getElementById("download-result");
 
+    input.addEventListener("input", () => {
+        download.classList.add("hidden");
+        output.innerText = "";
+    });
+
     form.addEventListener("submit", (e) => {
         e.preventDefault();
+
+        output.innerText = "";
+
         const swagger = input.value;
         let json;
         try {
@@ -72,11 +80,22 @@ import Layout from "../layouts/Layout.astro";
         let tex = "";
         for (const groupKey in groupsMap) {
             tex += `\n\n\n\\makeendpointgroup{${groupKey}}\n`;
+
             const groups = groupsMap[groupKey];
             for (const group of groups) {
                 const { method, path, data } = group;
-                const { summary, description, parameters, responses } = data;
-                tex += `\n\n\\makeendpoint{${method.toUpperCase()}}{${path}}{${summary}}\n`;
+                const {
+                    summary,
+                    description,
+                    parameters,
+                    responses,
+                    requestBody,
+                } = data;
+
+                const fixedPath = path.replace(/[\{\}]/g, (m) => "\\" + m);
+
+                tex += `\n\n\\makeendpoint{${method.toUpperCase()}}{${fixedPath}}{${summary}}\n`;
+
                 if (parameters) {
                     tex += `\n\\begin{makeparameters}\n`;
                     for (const parameter of parameters) {
@@ -86,47 +105,109 @@ import Layout from "../layouts/Layout.astro";
                             description,
                             required,
                         } = parameter;
-                        tex += `\\makeparameter{${name}}{${location}}{${description}}{${required}}\n`;
+                        tex += `\t\\makeparameter{${name}}{\\${location}}{${description}}{${required}}\n`;
                     }
                     tex += `\\end{makeparameters}\n`;
                 }
+
+                // TODO: Request body
+                if (requestBody) {
+                    tex += `\\makerequestbody\n`;
+
+                    const { content } = requestBody;
+                    if (content) {
+                        const contentType = Object.keys(requestBody.content)[0];
+                        const { schema } = content[contentType];
+                        const { $ref, type } = schema;
+
+                        if ($ref) {
+                            const schemaName = $ref.split("/").pop();
+                            const schema = schemas[schemaName];
+                            const fixedType =
+                                type === undefined ? "object" : type;
+                            if (schema) {
+                                tex += `\\makebody`;
+                                tex += `{\\makecontent{${contentType}}{${fixedType}}}`;
+                                tex += `{\\refschema{s2t:schema:${schemaName}}}`;
+                                tex += `\n\n`;
+                            }
+                        }
+                    }
+                }
+
                 if (responses) {
                     tex += `\\begin{makeresponses}\n`;
                     for (const responseKey in responses) {
                         const { description, content } = responses[responseKey];
-                        tex += `\\makeresponse{${responseKey}}{${description}}\n`;
+
+                        tex += `\\makeresponsetriplet{\\makeresponse{${responseKey}}{${description}}}`;
+
                         if (content) {
                             for (const contentType in content) {
                                 const { schema } = content[contentType];
                                 const { $ref, type } = schema;
                                 if ($ref) {
                                     const schemaName = $ref.split("/").pop();
-                                    const schemaData = schemas[schemaName];
-                                    const { type, properties, required } =
-                                        schemaData;
-                                    tex += `\\makecontent{${contentType}}{${type}}\n`;
-                                    if (properties) {
-                                        tex += `\\begin{makeproperties}\n`;
-                                        for (const propertyKey in properties) {
-                                            const { type } =
-                                                properties[propertyKey];
-                                            tex += `\\makeproperty{${propertyKey}}{${type}}{${required.includes(
-                                                propertyKey
-                                            )}}\n`;
-                                        }
-                                        tex += `\\end{makeproperties}\n`;
+                                    const schema = schemas[schemaName];
+                                    const fixedType =
+                                        type === undefined ? "object" : type;
+                                    if (schema) {
+                                        tex += `{\\makecontent{${contentType}}{${fixedType}}}`;
+                                        tex += `{\\refschema{s2t:schema:${schemaName}}}`;
                                     }
                                 } else if (type) {
-                                    tex += `\\makecontent{${contentType}}{${type}}\n`;
+                                    if (type === "array") {
+                                        const { items } = schema;
+                                        const { $ref, type: itemType } = items;
+                                        if ($ref) {
+                                            const schemaName = $ref
+                                                .split("/")
+                                                .pop();
+                                            const itemSchema =
+                                                schemas[schemaName];
+                                            if (itemSchema) {
+                                                tex += `{\\makecontent{${contentType}}{${type}}}`;
+                                                tex += `{\\refschema{s2t:schema:${schemaName}}}`;
+                                            }
+                                        } else if (itemType) {
+                                            tex += `{\\makecontent{${contentType}}{${type}}}{}`;
+                                        }
+                                    } else {
+                                        tex += `{\\makecontent{${contentType}}{${type}}}{}`;
+                                    }
                                 }
                             }
+                            tex += "\n";
+                        } else {
+                            tex += "{}{}\n";
                         }
                     }
                     tex += `\\end{makeresponses}\n`;
                 }
             }
         }
+
+        tex += `\n\n\n\\makeschemas\n`;
+
+        // Schemas
+        for (const schemaName in schemas) {
+            const schema = schemas[schemaName];
+            const { type, properties, required } = schema;
+
+            tex += `\\begin{makeschema}{${schemaName}}{s2t:schema:${schemaName}}\n`;
+
+            for (const propertyKey in properties) {
+                const { type, format } = properties[propertyKey];
+                const fixedFormat = format ? format : "";
+                const propertyRequired = required.includes(propertyKey);
+                tex += `\\makeproperty{${propertyKey}}{${type}}{${fixedFormat}}{${propertyRequired}}\n`;
+            }
+
+            tex += `\\end{makeschema}\n`;
+        }
+
         tex = tex.trim().replace(/_/g, "\\_");
+
         output.innerText = tex;
         download.classList.remove("hidden");
         download.addEventListener("click", () => {
